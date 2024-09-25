@@ -24,6 +24,9 @@
 //! polling period [seconds]
 #define POLL_DELAY (60000)
 
+//! Board ID pin
+#define BOARD_ID_PIN (13) 
+
 //! Force wait for serial monitor before initializing
 //#define WAIT_FOR_SERIAL_MONITOR (1)
 
@@ -37,12 +40,14 @@
 
 Adafruit_MCP2515 mcp(MCP2515_CS_PIN); //!< CanBus FeatherWing
 
+uint8_t g_board_id; //!< board ID
+
 // set up the adafruit IO feeds
-AdafruitIO_Feed *io_binary = io.feed("hd55-1.hd55-binary");
-AdafruitIO_Feed *io_rh = io.feed("hd55-1.relative-humidity");
-AdafruitIO_Feed *io_temperature = io.feed("hd55-1.temperature");
-AdafruitIO_Feed *io_setpoint = io.feed("hd55-1.setpoint");
-AdafruitIO_Feed *io_status = io.feed("hd55-1.status");
+AdafruitIO_Feed *io_binary      = NULL;
+AdafruitIO_Feed *io_rh          = NULL;
+AdafruitIO_Feed *io_temperature = NULL;
+AdafruitIO_Feed *io_setpoint    = NULL;
+AdafruitIO_Feed *io_status      = NULL;
 
 void setup() {
 
@@ -55,6 +60,30 @@ void setup() {
     ;
 #endif
 
+  //configure Board ID pin as an input and enable the internal pull-up resistor
+  pinMode(BOARD_ID_PIN, INPUT_PULLUP);
+  delay(100);
+  g_board_id = digitalRead(BOARD_ID_PIN);
+  if (g_board_id == 1u)
+  {
+    io_binary      = io.feed("hd55-1.hd55-binary");
+    io_rh          = io.feed("hd55-1.relative-humidity");
+    io_temperature = io.feed("hd55-1.temperature");
+    io_setpoint    = io.feed("hd55-1.setpoint");
+    io_status      = io.feed("hd55-1.status");
+  }
+  else
+  {
+    io_binary      = io.feed("hd55-2.hd55-binary");
+    io_rh          = io.feed("hd55-2.relative-humidity");
+    io_temperature = io.feed("hd55-2.temperature");
+    io_setpoint    = io.feed("hd55-2.setpoint");
+    io_status      = io.feed("hd55-2.status");
+  }
+
+  /*
+   * Adafruit IO
+   */
   Serial.print("Connecting to Adafruit IO");
 
   // connect to io.adafruit.com
