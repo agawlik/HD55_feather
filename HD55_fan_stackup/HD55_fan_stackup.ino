@@ -9,6 +9,10 @@
 #include "Adafruit_SHT4x.h"
 #include "Adafruit_MCP2515.h"
 #include "Adafruit_EEPROM_I2C.h"
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SH110X.h>
 
 /************************** Configuration ***********************************/
 
@@ -23,7 +27,7 @@
 #define BOARD_ID_PIN (13) 
 
 //! Force wait for serial monitor before initializing
-#define WAIT_FOR_SERIAL_MONITOR (1)
+// #define WAIT_FOR_SERIAL_MONITOR (1)
 
 //! Serial monitor baudrate
 #define SERIAL_MONITOR_BAUD (115200)
@@ -48,6 +52,8 @@ char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursd
 Adafruit_SHT4x sht4 = Adafruit_SHT4x();
 
 Adafruit_EEPROM_I2C i2ceeprom;
+
+Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
 
 // set up the adafruit IO feeds
 AdafruitIO_Feed *io_binary      = NULL;
@@ -93,30 +99,27 @@ void setup() {
   Serial.println("Connected to wifi");
   printWiFiStatus();
 
-  // Serial.println("\nStarting connection to server...");
-  // Udp.begin(localPort);
-  timeClient.begin();
-  delay(1000);
-  if (timeClient.forceUpdate() == false)
-  {
-    Serial.println("Failed to force update NTP");
-  }
-  else
-  {
-    Serial.print("NTP: ");
-    Serial.println(timeClient.getFormattedTime());
-  }
-
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     Serial.flush();
     while (1) delay(10);
   }
 
+  // Serial.println("\nStarting connection to server...");
+  // Udp.begin(localPort);
+  timeClient.begin();
+  // delay(1000);
+  if (timeClient.forceUpdate() == false)
+  {
+    Serial.println("Failed to force update NTP");
+  }
+
   if (timeClient.isTimeSet())
   {
-    Serial.println("Setting RTC from NTP");
     rtc.adjust(DateTime(timeClient.getEpochTime()));
+    Serial.println("Setting RTC from NTP");
+    Serial.print("NTP: ");
+    Serial.println(timeClient.getFormattedTime());
   }
 
   if (rtc.lostPower()) {
@@ -132,6 +135,8 @@ void setup() {
   eepromSetup();
   
   mcp2515Setup();
+
+  displaySetup();
 
   /*
    * Board ID
@@ -197,7 +202,9 @@ void loop() {
 
   sht40Loop();
   
-  // rtcTest();
+  displayLoop();
+
+  rtcTest();
 
   // mcp2515Loop();
 
@@ -496,4 +503,55 @@ void eepromSetup(void)
 void eepromLoop(void)
 {
   
+}
+
+void displaySetup(void)
+{
+  Serial.println("128x64 OLED FeatherWing test");
+  delay(250); // wait for the OLED to power up
+  display.begin(0x3C, true); // Address 0x3C default
+
+  Serial.println("OLED begun");
+
+  // Show image buffer on the display hardware.
+  // Since the buffer is intialized with an Adafruit splashscreen
+  // internally, this will display the splashscreen.
+  display.display();
+  // delay(1000);
+}
+
+void displayLoop(void)
+{
+  sensors_event_t humidity, temp;
+  
+  if (sht4.getEvent(&humidity, &temp) == true)
+  {
+    display.clearDisplay();
+    // display.display();
+
+    display.setRotation(1);
+
+    // text display tests
+    display.setTextSize(2);
+    display.setTextColor(SH110X_WHITE);
+    display.setCursor(0,0);
+    display.print("T:");
+    display.print(temp.temperature);
+    display.println(" C");
+    display.print("H:");
+    display.print(humidity.relative_humidity);
+    display.println(" %");
+
+    DateTime now = rtc.now();
+    display.print(now.month(), DEC);
+    display.print('/');
+    display.println(now.day(), DEC);
+    display.print(now.hour(), DEC);
+    display.print(':');
+    display.print(now.minute(), DEC);
+    display.print(':');
+    display.print(now.second(), DEC);
+
+    display.display(); // actually display all of the above
+  }
 }
